@@ -21,7 +21,7 @@ void printGrid(int* g, int M, int N) { // g already odd or even
     for (j = 0; j < N; j++) {
       int c = g[l*2];
       for (k = 31; k > 0; k--)
-	if (c & (1<< k))
+	if (c & (1<<k))
 	  printf("X");
        else
 	 printf("-");
@@ -33,37 +33,52 @@ void printGrid(int* g, int M, int N) { // g already odd or even
 
 inline void done(int* grid){ free(grid); exit(0); }
 
+int strtob(char* *ptr, int bits, char const* c0) {
+  int retval = 0;
+  for (int bit = 1 << bits - 1; bit; bit >>= 1) {
+    char c = toupper(*((*ptr)++));
+    if (c) {
+      char const* c1;
+      for (c1 = c0; c1; c1++)
+	if (c == toupper(*c1))
+	  break;
+      if (c1) // c isn't one of the characters in c0, treat as a 1
+	retval |= bit;
+    } else
+      break; // unexpected end of string before reaching bits bits
+  }
+  return retval; 
+}
+
 int main(int argc, char** argv) {
-  int i/*, j, k, l*/;
-
-   int up = 0, down = 0, left = 0, right = 0;
-
    // size of grid in x and y
-   int xLog = 2, yLog = 2, xDim, yDim, errDim;
-   if (argc > 2) {
-     xLog = atoi(argv[2]);
-     if (argc > 3) {
-       yLog = atoi(argv[3]);
-     }
-   }
-   xDim = 1<<xLog;
-   yDim = 1<<yLog;
-   errDim = (xDim > yDim) ? xDim : yDim;
+  cl_int east_wood, M, N;
+  char line[1024];
+  int i = 0;
+  const int max = 2*(2*1024*1024); // 2*2MiB double buffer
+  int* grid = (int*) malloc(max*sizeof(int));
+  
+  // Initialize M, N and grid[] from stdin until EOF
+  for (M = N = 0; scanf("%s", line); M++) {
+    int len, crunch;
+    if ((len = strlen(line)) > N)
+      N = len;
 
-   // Initialize the board position
-   const size_t dataSize = xDim*yDim*sizeof(int);
-   int* grid = (int*) calloc(xDim*yDim, sizeof(int));
-   grid[1] = grid[xDim] = 2;
-   printGrid(grid, xDim, yDim);
-   termsetup(1);
+    char* word = line;
+    for (crunch = len; crunch > 30; crunch -= 30) {
+      bin = strtob(&word, 30, "- _") << 1;
+      grid[i] = bin;
+      if ((i += 2) > max)
+	done(grid);
+    }
+    grid[i] = strtob(&word, crunch, "- _") << (31 - crunch);
+  }
+
+  printGrid(grid, xDim, yDim);
              
    // Set up the OpenCL environment
-   const cl_int SLIDE_UP = -xDim;
-   const cl_int SLIDE_LF = -1;
-   const cl_int SLIDE_RT = 1;
-   const cl_int SLIDE_DN = xDim;
-   const cl_int log_rep = 0;
-   cl_int status;
+  cl_int status;
+  cl_int 
 
    // Discover platform
    cl_platform_id platform;
