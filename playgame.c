@@ -62,7 +62,8 @@ int main(int argc, char** argv) { // filename [cpu|gpu [iter [skip]]]
   int i = 0;
   const int max = 2*(2*1024*1024); // 2*2MiB (double buffer)
   int* grid = (int*) malloc(max*sizeof(int));
-  FILE* in = ((argc < 2) || (argv[1][0] == '-')) ? NULL : fopen(argv[1], "r");
+  if (argc<2) { printf("%s -|file [cpu|gpu [iterations [dump]]]"); exit(argc); }
+  FILE* in = strcmp(argv[1],"-") ? fopen(argv[1], "r") : NULL;
 
   // Initialize M, N and grid[] from stdin until EOF
   for (M = N = 0; (in ? fscanf(in, "%s", line) : scanf("%s", line)) > 0; M++) {
@@ -170,7 +171,7 @@ printf("%s (%d) returned %d\n", line, len, grid[i]);
     status |= clSetKernelArg(evolve, 5, sizeof(cl_int), &i);
     chk(status, "clSetKernelArg", NULL, NULL);
 
-    // Copy inputs to the device
+    // Copy inputs to the device: OMIT?  SHARED MEMORY?
     status = clEnqueueWriteBuffer(queue, d_grid, CL_TRUE /*blocking_write*/,
 				  0 /*offset*/, dataSize, grid,
 				  0 /*events_in_ ...*/, NULL /*event_wait_list*/,
@@ -184,6 +185,7 @@ printf("%s (%d) returned %d\n", line, len, grid[i]);
 				    globalSize, localSize, 0, NULL, NULL);
     chk(status, "clEnqueueNDRangeKernel", NULL, NULL);
 
+    // Copy outputs back from the device: OMIT?  SHARED MEMORY?
     status = clEnqueueReadBuffer(queue, d_grid, CL_TRUE /*blocking_read*/,
 				  0 /*offset*/, dataSize, grid,
 				  0 /*events_in_ ...*/, NULL /*event_wait_list*/,
@@ -192,7 +194,7 @@ printf("%s (%d) returned %d\n", line, len, grid[i]);
 
     if (printskip && (i % printskip == 0)) {
       printf("%d/%d:\n", i, iterations);
-      printGrid(grid, M, N);
+      printGrid(&grid[i&1], M, N);
     }
   }
   exit(0);

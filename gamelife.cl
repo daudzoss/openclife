@@ -1,9 +1,9 @@
-/ gamelife.cl
+// gamelife.cl
 //
 // OpenCL kernel for Conway's cellular automata game of life on parallel compute
 
 #define NEIGHBORS(a,b,c,d,e,f,g,h) ((a)?1:0)+((b)?1:0)+((c)?1:0)+((d)?1:0)+((e)?1:0)+((f)?1:0)+((g)?1:0)+((h)?1:0)
-#define LIVE(sl,sh,rl,rh,a,n) (a) ? (n)>=(sl)&&(n)<=(sh) : (n)>=(rl)&&(n)<=(rh)
+#define LIVE(sl,sh,rl,rh,a,n) (a)?(n)>=(sl)&&(n)<=(sh): (n)>=(rl)&&(n)<=(rh)
 
 __kernel void k(global int* grid, int sl, int sh, int rl, int rh, int odd_Neven)
 {
@@ -24,7 +24,7 @@ __kernel void k(global int* grid, int sl, int sh, int rl, int rh, int odd_Neven)
   lsb_new = (lsb_old = odd_Neven & 1) ? 0 : 1;
   row_old = row_leftbits | lsb_old;
   above = grid[row_old - 2]; // skip interleaved (_new) row
-  level = grid[row_old]
+  level = grid[row_old];
   below = grid[row_old + 2]; // skip interleaved (_new) row
   row_new = row_leftbits | lsb_new;
   
@@ -49,6 +49,5 @@ __kernel void k(global int* grid, int sl, int sh, int rl, int rh, int odd_Neven)
     next_value |= alive_status ? mask : 0;
   }
 
-  // write into the new array (requires a barrier for atomicity?!?)
   grid[row_new] = next_value;
 }
