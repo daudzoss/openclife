@@ -2,45 +2,51 @@
 
 // renamed from convolution.c in ch. 4 of "Heterogeneous Computing with OpenCL"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <CL/cl.h>
 
 char* readSource(char*);
 void chk(cl_int, const char*, cl_device_id*, cl_program*);
 
 void printGrid(int* g, int M, int N) { // g already odd or even, with gaps of 2
-  int i, j, k, l;
+  int l, strips;
 
   l = 0;
-  for (i = 0; i < M; i++) {
-    for (j = 0; j < N; j++) {
-      int c = g[l*2];
-      for (k = 31; k > 0; k--)
-	if (c & (1<<k))
+  strips = (N+29)/30;
+
+  for (int i = 0; i < M; i++) {
+    int n = N;
+
+    for (int j = 0; j < strips; j++) {
+      int c = g[2 * (l + j*M)];
+
+      for (int k = 0; n-- && (k < 30); k++)
+	if (c & (1<<(30-k)))
 	  printf("X");
-       else
-	 printf("-");
+	else
+	  printf("-");
     }
+    l++;
     printf("\n");
   }
   printf("\n");
 }
 
-inline void done(int* grid){ free(grid); exit(0); }
-
 int strtob(char* *ptr, int bits, char const* c0) {
   int retval = 0;
 
-  for (int bit = 1 << bits - 1; bit; bit >>= 1) {
+  for (int bit = 1 << (bits - 1); bit; bit >>= 1) {
     char c = toupper(*((*ptr)++));
     if (c) {
       char const* c1;
       
-      for (c1 = c0; c1; c1++)
+      for (c1 = c0; *c1; c1++)
 	if (c == toupper(*c1))
 	  break;
-      if (c1) // c isn't one of the characters in c0, treat as a 1
+      if (!*c1) // c isn't one of the characters in c0, treat as a 1
 	retval |= bit;
     } else
       break; // unexpected end of string before reaching "bits" bits
@@ -49,17 +55,18 @@ int strtob(char* *ptr, int bits, char const* c0) {
   return retval; 
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) { // filename [cpu|gpu [iter [skip]]]
    // size of grid in x and y
   cl_int east_wood, M, N;
   char line[1024];
   int i = 0;
   const int max = 2*(2*1024*1024); // 2*2MiB (double buffer)
   int* grid = (int*) malloc(max*sizeof(int));
-  
+  FILE* in = ((argc < 2) || (argv[1][0] == '-')) ? NULL : fopen(argv[1], "r");
+
   // Initialize M, N and grid[] from stdin until EOF
-  for (M = N = 0; scanf("%s", line); M++) {
-    int len;
+  for (M = N = 0; (in ? fscanf(in, "%s", line) : scanf("%s", line)) > 0; M++) {
+    int len, bin;
     char* word;
 
     if ((len = strlen(line)) > N)
@@ -67,18 +74,22 @@ int main(int argc, char** argv) {
 
     for (word = line; len > 30; len -= 30) {
       bin = strtob(&word, 30, "- _") << 1;
+printf("%s (%d) returned %d\n", line, len, bin);
       grid[i] = bin;
       if ((i += 2) > (max - 2))
-	done(grid);
+	exit(-1);
     }
     grid[i] = strtob(&word, len, "- _") << (31 - len);
+printf("%s (%d) returned %d\n", line, len, grid[i]);
     i += 2;
-  }
+  }//FIXME: need to transpose if N > 30!
+  if (in)
+    fclose(in);
   printGrid(grid, M, N);
              
    // Set up the OpenCL environment
   cl_int status;
-  int Mwg, Nwg, Mwi, Nwi /* max 32-2=30 in one item */ = (N > 30) ? 30 : N;
+  int Mwg, Nwg, Mwi, Nwi /* max 32-2=30 in one item */ = (N>30) ? 30 : (N?N:1);
   
    // Discover platform
   cl_platform_id platform;
@@ -105,14 +116,14 @@ int main(int argc, char** argv) {
   status = clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES,
 			   numdims*sizeof(size_t), &dims, NULL);
   chk(status, "clGetDeviceInfo", NULL, NULL);
-  printf("the max workgroup size of which is reported as %d*%d\n", dims[0],
-	                                                           dims[1]);
+  printf("the max workgroup size of which is reported as %d*%d\n", (int)dims[0],
+                                                                 (int) dims[1]);
   Mwi = (dims[0] < M) ? dims[0] : M;
   Mwg = (M-1 + Mwi)/Mwi;
   Nwi = (dims[1] < Nwi) ? dims[1] : Nwi;
-  Nwg = (N-1 + Nwi)/Nwi;
+  Nwg = ((N-1)/30 + Nwi)/Nwi;
   const size_t dataSize = sizeof(int)*i; //= sizeof(int)*b(Mwg*Nwg)*(Mwi*Nwi);
-  printf("so requesting %d*%d workgroups of %d*%d=%d\n", Mwg, Nwg, Mwi, Nwi, i);
+  printf("requesting %d*%d workgroups of %d*%d=%d\n", Mwg, Nwg, Mwi, Nwi, i/2);
 
   // Create context
   cl_context_properties props[3] = {CL_CONTEXT_PLATFORM,
@@ -184,5 +195,5 @@ int main(int argc, char** argv) {
       printGrid(grid, M, N);
     }
   }
-  done(grid);
+  exit(0);
 }
