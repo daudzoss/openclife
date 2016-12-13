@@ -1,4 +1,4 @@
-// build with: gcc -o life -L/usr/lib/path_to_libOpenCL.so playgame.c readkern.c -lcl
+// build cmd: gcc -o life -L/usr/lib/path_to_libcl.so playgame.c readkern.c -lcl
 
 // renamed from convolution.c in ch. 4 of "Heterogeneous Computing with OpenCL"
 
@@ -11,17 +11,17 @@
 char* readSource(char*);
 void chk(cl_int, const char*, cl_device_id*, cl_program*);
 
-void printGrid(int* g, int M, int N) { // g already odd or even, with gaps of 2
-  int l, strips;
+void printGrid(int* g, int M, int N) { // g already odd or even, with gaps of 2!
+  int l, vstrips;
 
   l = 0;
-  strips = (N+29)/30;
+  vstrips = (N+29)/30;
 
   for (int i = 0; i < M; i++) {
     int n = N;
 
-    for (int j = 0; j < strips; j++) {
-      int c = g[2 * (l + j*M)];
+    for (int j = 0; j < vstrips; j++) {
+      int c = g[2 * (l + j*M)]; // FIXME
 
       for (int k = 0; n-- && (k < 30); k++)
 	if (c & (1<<(30-k)))
@@ -152,7 +152,7 @@ int main(int argc, char** argv) { // filename [cpu|gpu [iter [skip]]]
 
   // Create the kernel objects and arguments
   // FIXME: is a cl_int at these addresses changeable? redo clSetKernelArg()?
-  cl_kernel evolve = clCreateKernel(program, "k", &status);
+  cl_kernel evolve = clCreateKernel(program, "evolve", &status);
   chk(status, "clCreateKernel", NULL, NULL);
 
   // Create space for the grid on the device
@@ -191,7 +191,7 @@ int main(int argc, char** argv) { // filename [cpu|gpu [iter [skip]]]
 				    globalSize, localSize, 0, NULL, NULL);
     chk(status, "clEnqueueNDRangeKernel", NULL, NULL);
     
-    if (printskip && ((i+1) % printskip == 0)) {
+    if ((printskip == 0) || ((i+1) % printskip == 0)) {
       // Copy outputs back from the device: OMIT?  SHARED MEMORY?
       status = clEnqueueReadBuffer(queue, d_grid, CL_TRUE /*blocking_read*/,
 				   0 /*offset*/, dataSize, grid,
