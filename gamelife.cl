@@ -7,12 +7,13 @@
 
 __kernel void evolve(global int* grid, int sl, int sh, int rl, int rh, int odd)
 {
-  int row_global, rows_per_strip, row_strips;
+  int row, row_global, rows_per_strip, row_strips;
   int col, col_left, col_strip_offset, col_my_strip;
   int lsb_old, lsb_new, row_leftbits, row_old, row_new;
   int above, level, below, next_value;
 
   // figure out the grid index of the pertinent 30+2 bit word
+  row = get_local_id(0);
   rows_per_strip = get_local_size(0);
   row_strips = get_num_groups(0);
   col_my_strip = get_group_id(1);
@@ -23,9 +24,9 @@ __kernel void evolve(global int* grid, int sl, int sh, int rl, int rh, int odd)
   // convert to an interleaved offset from the beginning of grid and read words
   lsb_new = (lsb_old = odd & 1) ? 0 : 1;
   row_old = row_leftbits | lsb_old;
-  above = grid[row_old - 2]; // skip interleaved (_new) row
+  above = (row == 0) ? 0 : grid[row_old - 2]; // skip interleaved (_new) row
   level = grid[row_old];
-  below = grid[row_old + 2]; // skip interleaved (_new) row
+  below = (row == rows_per_strip-1) ? 0 : grid[row_old + 2]; // skip interleaved
   row_new = row_leftbits | lsb_new;
   
   // establish whether each bit element lives, dies, or gets resurrected

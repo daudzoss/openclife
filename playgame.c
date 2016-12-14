@@ -21,10 +21,10 @@ void printGrid(int* g, int M, int N) { // g already odd or even, with gaps of 2!
     int n = N;
 
     for (int j = 0; j < vstrips; j++) {
-      int c = g[2 * (l + j*M)]; // FIXME
+      int c = g[2 * (l + j*M)];
 
-      for (int k = 0; n-- && (k < 30); k++)
-	if (c & (1<<(30-k)))
+      for (int k = 30; k && n; k--, n--)
+	if (c & (1<<k))
 	  printf("X");
 	else
 	  printf("-");
@@ -62,8 +62,17 @@ int main(int argc, char** argv) { // filename [cpu|gpu [iter [skip]]]
   int item = 0;
   const int max = 2*(2*1024*1024); // 2*2MiB (double buffer)
   int* grid = (int*) malloc(max*sizeof(int));
+
+  // Parse the command line
   if (argc<2) {printf("%s file|- [iterations [skip [cpu|gpu]]]",*argv);exit(1);}
   FILE* in = strcmp(argv[1],"-") ? fopen(argv[1], "r") : NULL;
+  cl_device_type pu = CL_DEVICE_TYPE_GPU;
+  int iterations, printskip;
+  iterations = (argc>2) ? atoi(argv[2]) : 0; // forever, if unspecified
+  printskip = (argc>3) ? atoi(argv[3]) : 1; // print each time, if unspecified
+  printskip = ((printskip>iterations)||(printskip<1)) ? iterations : printskip;
+  if ((argc > 4) && ((argv[4][0])=='C'))
+    pu = CL_DEVICE_TYPE_CPU;
 
   // Initialize M, N and grid[] from stdin until EOF
   for (M = N = 0; (in ? fscanf(in, "%s", line) : scanf("%s", line)) > 0; M++) {
@@ -99,14 +108,7 @@ int main(int argc, char** argv) { // filename [cpu|gpu [iter [skip]]]
   chk(status, "clGetPlatformIDs", NULL, NULL);
 
    // Discover device
-  int iterations, printskip;
   cl_device_id device;
-  cl_device_type pu = CL_DEVICE_TYPE_GPU;
-  iterations = (argc>2) ? atoi(argv[2]) : 0;
-  printskip = (argc>3) ? atoi(argv[3]) : 1;
-  printskip = ((printskip>iterations)||(printskip<1)) ? iterations : printskip;
-  if ((argc > 4) && ((argv[4][0])=='C'))
-    pu = CL_DEVICE_TYPE_CPU;
   printf("ideal workgroup size %d*%d, requesting %cPU\n", M, Nwi=(N-1+Nwi)/Nwi,
 	 (pu == CL_DEVICE_TYPE_GPU) ? 'G' : 'C');
   status = clGetDeviceIDs(platform, pu, 1, &device, NULL);
@@ -122,11 +124,11 @@ int main(int argc, char** argv) { // filename [cpu|gpu [iter [skip]]]
   chk(status, "clGetDeviceInfo", NULL, NULL);
   printf("the max workgroup size of which is reported as %d*%d\n", (int)dims[0],
                                                                  (int) dims[1]);
-  Mwi = (dims[0] < M) ? dims[0] : M;
+  Mwi = (dims[0] < M) ? dims[0] : M; // FIXME: will ^D on its own seg fault?
   Mwg = (M-1 + Mwi)/Mwi;
   Nwi = (dims[1] < Nwi) ? dims[1] : Nwi;
   Nwg = ((N-1)/30 + Nwi)/Nwi;
-  const size_t dataSize = sizeof(int)*item; //= sizeof(int)*b(Mwg*Nwg)*(Mwi*Nwi);
+  const size_t dataSize = sizeof(int)*(Mwg*Nwg)*(Mwi*Nwi); //=sizeof(int)*item;
   printf("requesting %d*%d workgroups %d*%d=%d\n", Mwg, Nwg, Mwi, Nwi, item/2);
 
   // Create context
