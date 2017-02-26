@@ -17,7 +17,7 @@ __kernel void evolve(global int* grid, int sl, int sh, int rl, int rh, int odd)
   rows_per_strip = get_local_size(0);
   row_strips = get_num_groups(0);
   col_my_strip = get_group_id(1);
-  col_strip_offset = col_my_strip * (row_strips * (2+rows_per_strip));
+  col_strip_offset = col_my_strip * row_strips * rows_per_strip;
   row_global = get_global_id(0);
   row_leftbits = (col_strip_offset + row_global) << 1;
 

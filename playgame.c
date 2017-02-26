@@ -55,16 +55,16 @@ int strtob(char* *ptr, int bits, char const* c0) {
   return retval; 
 }
 
-int main(int argc, char** argv) { // filename [cpu|gpu [iter [skip]]]
+int main(int argc, char** argv) { // filename [<iter> [<skip> [cpu|gpu]]]
    // size of grid in x and y
   cl_int east_wood, M, N;
   char line[1024];
   int item = 0;
-  const int max = 2*(2*1024*1024); // 2*2MiB (double buffer)
+  const int max = 2*(2*1024*1024); // 2*2MiW (double buffer)
   int* grid = (int*) malloc(max*sizeof(int));
 
   // Parse the command line
-  if (argc<2) {printf("%s file|- [iterations [skip [cpu|gpu]]]",*argv);exit(1);}
+  if (argc<2) {printf("%s file|- [iterations [skip [c|gpu]]]\n",*argv);exit(1);}
   FILE* in = strcmp(argv[1],"-") ? fopen(argv[1], "r") : NULL;
   cl_device_type pu = CL_DEVICE_TYPE_GPU;
   int iterations, printskip;
